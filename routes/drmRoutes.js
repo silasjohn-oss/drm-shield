@@ -40,10 +40,31 @@ router.post("/generate-link", authMiddleware, async (req, res) => {
   }
 });
 
+// List available files
+router.get("/files", authMiddleware, async (req, res) => {
+  try {
+    const uploadsDir = path.join(__dirname, "../uploads");
+    const files = fs.readdirSync(uploadsDir)
+      .filter(file => file.toLowerCase().endsWith('.pdf'))
+      .map(file => ({
+        filename: file,
+        size: fs.statSync(path.join(uploadsDir, file)).size,
+      }));
+
+    res.json({
+      msg: "Available files",
+      files,
+      total: files.length,
+    });
+  } catch (err) {
+    res.status(500).json({ msg: "Error listing files", error: err.message });
+  }
+});
+
 // Stream watermarked content
 router.get("/stream", async (req, res) => {
   try {
-    const { uid, cid, exp, sig } = req.query;
+    const { uid, cid, exp, sig, file } = req.query;
 
     // Verify signed URL
     const urlCheck = verifySignedUrl(uid, cid, exp, sig);
@@ -61,11 +82,19 @@ router.get("/stream", async (req, res) => {
       return res.status(403).json({ msg: "Session expired. Please login again." });
     }
 
-    // Use sample.pdf as fallback
-    const samplePath = path.join(__dirname, "../uploads/sample.pdf");
+    // Use specified file or fall back to sample.pdf
+    const filename = file || "sample.pdf";
+    const uploadsDir = path.join(__dirname, "../uploads");
+    const samplePath = path.join(uploadsDir, filename);
+    
+    // Security check: prevent directory traversal
+    if (!samplePath.startsWith(uploadsDir) || !filename.toLowerCase().endsWith('.pdf')) {
+      return res.status(400).json({ msg: "Invalid file specified" });
+    }
+
     if (!fs.existsSync(samplePath)) {
       return res.status(404).json({
-        msg: "Please add a sample.pdf file to the uploads folder"
+        msg: `File '${filename}' not found in uploads folder`
       });
     }
 
@@ -86,7 +115,7 @@ router.get("/stream", async (req, res) => {
     );
 
     // Send file then clean up
-    res.download(watermarkedPath, "protected-content.pdf", () => {
+    res.download(watermarkedPath, `protected-${filename}`, () => {
       setTimeout(() => {
         if (fs.existsSync(watermarkedPath)) fs.unlinkSync(watermarkedPath);
       }, 5000);
