@@ -1,0 +1,27 @@
+name: DRM Shield CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check server syntax
+        run: node --check server.js
+
+      - name: Verify routes load
+        run: node -e "require('./routes/authRoutes'); require('./routes/drmRoutes'); console.log('All routes OK')"
+
+      - name: CI passed
+        run: echo "DRM Shield build successful"
