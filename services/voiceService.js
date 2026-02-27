@@ -1,0 +1,33 @@
+const axios = require("axios");
+const fs = require("fs");
+require("dotenv").config();
+
+async function speakAlert(message) {
+  try {
+    const response = await axios.post(
+      `https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVENLABS_VOICE_ID}`,
+      {
+        text: message,
+        model_id: "eleven_monolingual_v1",
+        voice_settings: { stability: 0.5, similarity_boost: 0.5 },
+      },
+      {
+        headers: {
+          "xi-api-key": process.env.ELEVENLABS_API_KEY,
+          "Content-Type": "application/json",
+        },
+        responseType: "arraybuffer",
+      }
+    );
+
+    const audioPath = "./uploads/alert.mp3";
+    fs.writeFileSync(audioPath, response.data);
+    console.log("🔊 Voice alert generated:", message);
+    return audioPath;
+  } catch (err) {
+    console.error("ElevenLabs error:", err.message);
+    return null;
+  }
+}
+
+module.exports = speakAlert;
